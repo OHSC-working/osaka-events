@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>大阪イベントカレンダー｜Osaka Event Calendar</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Helvetica Neue",Arial,sans-serif;background:#f7f6f3;color:#1a1a1a;min-height:100vh}
+header{background:#fff;border-bottom:1px solid #e5e4e0;padding:1.25rem 1.5rem}
+.header-inner{max-width:900px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+h1{font-size:20px;font-weight:600;letter-spacing:-.3px}
+.subtitle{font-size:12px;color:#888;margin-top:2px}
+.controls{max-width:900px;margin:1.25rem auto;padding:0 1.5rem;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.date-wrap{display:flex;align-items:center;gap:6px;font-size:13px;color:#666}
+input[type=date]{font-size:13px;padding:6px 10px;border:1px solid #ddd;border-radius:8px;background:#fff;color:#1a1a1a}
+.filters{display:flex;flex-wrap:wrap;gap:6px;margin-left:auto}
+.btn{font-size:12px;padding:5px 14px;border:1px solid #ddd;border-radius:20px;background:#fff;color:#555;cursor:pointer;transition:all .15s}
+.btn.active{background:#1a1a1a;color:#fff;border-color:#1a1a1a}
+.cards{max-width:900px;margin:0 auto;padding:0 1.5rem 3rem;display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+.card{background:#fff;border:1px solid #e5e4e0;border-radius:14px;overflow:hidden;cursor:pointer;transition:box-shadow .15s,transform .15s}
+.card:hover{box-shadow:0 4px 20px rgba(0,0,0,.08);transform:translateY(-2px)}
+.card-img{width:100%;height:110px;display:flex;align-items:center;justify-content:center;font-size:42px;background:#f7f6f3}
+.card-body{padding:14px}
+.card-meta{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+.badge{font-size:11px;padding:2px 9px;border-radius:10px;font-weight:500}
+.badge-matsuri{background:#f0eefe;color:#5240b8}
+.badge-food{background:#e1f5ee;color:#0a5e48}
+.badge-art{background:#fef3e2;color:#7a4500}
+.badge-nature{background:#eaf3de;color:#2b5e10}
+.card-date{font-size:11px;color:#999}
+.card-title{font-size:15px;font-weight:600;margin-bottom:5px;line-height:1.4}
+.card-desc{font-size:12px;color:#666;line-height:1.6;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.card-tags{padding:10px 14px;border-top:1px solid #f0ede8;display:flex;flex-wrap:wrap;gap:5px}
+.tag{font-size:11px;color:#999;background:#f7f6f3;padding:2px 8px;border-radius:4px}
+/* Detail */
+.detail-wrap{max-width:900px;margin:1.5rem auto;padding:0 1.5rem}
+.detail-box{background:#fff;border:1px solid #e5e4e0;border-radius:16px;padding:2rem}
+.detail-emoji{font-size:48px;margin-bottom:.5rem}
+.detail-title{font-size:22px;font-weight:700;margin-bottom:4px}
+.detail-place{font-size:13px;color:#999;margin-bottom:1.25rem}
+.detail-section{margin-bottom:1.25rem}
+.detail-label{font-size:11px;color:#999;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;font-weight:600}
+.detail-value{font-size:14px;color:#333;line-height:1.7}
+.detail-link{color:#2060c8;font-size:14px;text-decoration:none}
+.detail-link:hover{text-decoration:underline}
+.manner-box{background:#fffbeb;border:1px solid #f5d87a;border-radius:10px;padding:12px 14px;font-size:13px;color:#7a5800;line-height:1.7}
+.back-btn{font-size:13px;padding:8px 16px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;margin-top:1.5rem}
+.back-btn:hover{background:#f7f6f3}
+.empty{text-align:center;padding:4rem;color:#aaa;font-size:14px}
+.loading{text-align:center;padding:4rem;color:#aaa;font-size:14px}
+.error-box{max-width:900px;margin:2rem auto;padding:0 1.5rem}
+.error-msg{background:#fff5f5;border:1px solid #fcc;border-radius:10px;padding:1rem 1.25rem;font-size:13px;color:#c00}
+@media(max-width:600px){
+  .header-inner{flex-direction:column;align-items:flex-start}
+  .controls{flex-direction:column;align-items:flex-start}
+  .filters{margin-left:0}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div>
+      <h1>大阪イベントカレンダー</h1>
+      <div class="subtitle">民泊ゲスト向け — Osaka Event Guide for Guests</div>
+    </div>
+  </div>
+</header>
+
+<div class="controls">
+  <div class="date-wrap">
+    <span>チェックイン</span>
+    <input type="date" id="date-from">
+    <span>〜</span>
+    <input type="date" id="date-to">
+  </div>
+  <div class="filters">
+    <button class="btn active" data-cat="all">すべて</button>
+    <button class="btn" data-cat="matsuri">祭り</button>
+    <button class="btn" data-cat="food">食</button>
+    <button class="btn" data-cat="art">アート</button>
+    <button class="btn" data-cat="nature">自然</button>
+  </div>
+</div>
+
+<div id="app"></div>
+
+<script>
+// ============================================================
+// ★ここだけ変更してください★
+// Apps ScriptをWebアプリとして公開した後に発行されるURLを貼り付けてください
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrFskyRFiIls67MC9AIuraG_42ZJHvtJ2xwGclkLyzBSJ4ns2W7I__drkVr65C-Y2yDA/exec";
+// ============================================================
+
+let allEvents = [];
+let cat = "all";
+let dateFrom = null;
+let dateTo = null;
+
+async function loadEvents() {
+  const app = document.getElementById("app");
+  app.innerHTML = '<div class="loading">イベント情報を読み込み中...</div>';
+  try {
+    const res = await fetch(APPS_SCRIPT_URL);
+    if (!res.ok) throw new Error("fetch failed");
+    allEvents = await res.json();
+    renderCards();
+  } catch(e) {
+    app.innerHTML = `
+      <div class="error-box">
+        <div class="error-msg">
+          ⚠️ データの読み込みに失敗しました。<br>
+          Apps ScriptのURLが正しく設定されているか確認してください。<br><br>
+          <small>エラー: ${e.message}</small>
+        </div>
+      </div>`;
+  }
+}
+
+function inRange(ev) {
+  if (!dateFrom && !dateTo) return true;
+  const s = new Date(ev.date_start), e = new Date(ev.date_end);
+  if (dateFrom && dateTo) { const f = new Date(dateFrom), t = new Date(dateTo); return s <= t && e >= f; }
+  if (dateFrom) return e >= new Date(dateFrom);
+  if (dateTo)   return s <= new Date(dateTo);
+  return true;
+}
+
+function fmtDate(d) {
+  const dt = new Date(d);
+  return dt.toLocaleDateString("ja-JP", {month:"short", day:"numeric"});
+}
+
+function catLabel(c) {
+  return {matsuri:"祭り", food:"食", art:"アート", nature:"自然"}[c] || c;
+}
+
+function renderCards() {
+  const app = document.getElementById("app");
+  const filtered = allEvents.filter(ev => (cat === "all" || ev.cat === cat) && inRange(ev));
+  if (!filtered.length) {
+    app.innerHTML = '<div class="empty">該当するイベントがありません</div>';
+    return;
+  }
+  app.innerHTML = `<div class="cards">${filtered.map((ev, i) => `
+    <div class="card" onclick="showDetail(${i}, ${JSON.stringify(filtered).replace(/"/g,'&quot;')})">
+      <div class="card-img">${ev.emoji || "📅"}</div>
+      <div class="card-body">
+        <div class="card-meta">
+          <span class="badge badge-${ev.cat}">${catLabel(ev.cat)}</span>
+          <span class="card-date">${fmtDate(ev.date_start)}${ev.date_start !== ev.date_end ? " – " + fmtDate(ev.date_end) : ""}</span>
+        </div>
+        <div class="card-title">${ev.title}</div>
+        <div class="card-desc">${ev.desc}</div>
+      </div>
+      <div class="card-tags">${(ev.tags||[]).map(t=>`<span class="tag">${t}</span>`).join("")}</div>
+    </div>`).join("")}</div>`;
+}
+
+function showDetail(idx, events) {
+  const ev = events[idx];
+  const app = document.getElementById("app");
+  app.innerHTML = `
+    <div class="detail-wrap">
+      <div class="detail-box">
+        <div class="detail-emoji">${ev.emoji || "📅"}</div>
+        <div class="detail-title">${ev.title}</div>
+        <div class="detail-place">${ev.place}</div>
+        <div class="detail-section">
+          <div class="detail-label">開催日程</div>
+          <div class="detail-value">${fmtDate(ev.date_start)} – ${fmtDate(ev.date_end)}</div>
+        </div>
+        <div class="detail-section">
+          <div class="detail-label">概要</div>
+          <div class="detail-value">${ev.desc}</div>
+        </div>
+        <div class="detail-section">
+          <div class="detail-label">予約・参加方法</div>
+          <div class="detail-value">${ev.reserve}</div>
+          ${ev.url ? `<a class="detail-link" href="${ev.url}" target="_blank" rel="noopener">→ 公式サイトを見る</a>` : ""}
+        </div>
+        <div class="detail-section">
+          <div class="detail-label">知っておくべきマナー</div>
+          <div class="manner-box">${ev.manner}</div>
+        </div>
+        <button class="back-btn" onclick="renderCards()">← 一覧に戻る</button>
+      </div>
+    </div>`;
+}
+
+document.querySelectorAll(".btn[data-cat]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".btn[data-cat]").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    cat = btn.dataset.cat;
+    renderCards();
+  });
+});
+document.getElementById("date-from").addEventListener("change", e => { dateFrom = e.target.value; renderCards(); });
+document.getElementById("date-to").addEventListener("change",   e => { dateTo   = e.target.value; renderCards(); });
+
+loadEvents();
+</script>
+</body>
+</html>
