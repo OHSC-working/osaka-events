@@ -136,7 +136,7 @@ function parseCSV(text) {
       url:       (cols[15] || "").replace(/"/g,""),
       reserve:   (cols[16] || "").replace(/"/g,""),
       map_url:   (cols[18] || "").replace(/"/g,""),
-      image_url: (cols[26] || "").replace(/"/g,"").trim()
+      image_url: (cols[22] || "").replace(/"/g,"").trim()
     });
   }
   return events;
