@@ -84,6 +84,16 @@ input[type=date]{font-size:13px;padding:6px 10px;border:1px solid #ddd;border-ra
     <button class="btn" data-cat="nature">自然</button>
   </div>
 </div>
+<div class="controls" style="margin-top:-8px">
+  <div class="date-wrap"><span>📍 エリア</span></div>
+  <div class="filters">
+    <button class="btn active" data-area="all">すべて</button>
+    <button class="btn" data-area="大阪市内">大阪市内</button>
+    <button class="btn" data-area="泉南">泉南</button>
+    <button class="btn" data-area="北摂">北摂</button>
+    <button class="btn" data-area="北河内">北河内</button>
+  </div>
+</div>
 
 <div id="app"></div>
 
@@ -92,6 +102,7 @@ const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRKTG6J-epN19t7
 
 let allEvents = [];
 let cat = "all";
+let area = "all";
 let dateFrom = null;
 let dateTo = null;
 
@@ -108,22 +119,24 @@ function parseCSV(text) {
     }
     cols.push(cur.trim());
 
-    const flag = (cols[16] || "").replace(/"/g,"").trim().toUpperCase();
-    if (flag !== "TRUE" && flag !== "✓") continue;
+    const flag = (cols[20] || "").replace(/"/g,"").trim();
+    if (flag !== "公開") continue;
 
     events.push({
-      cat:       (cols[0]  || "").replace(/"/g,""),
-      title:     (cols[1]  || "").replace(/"/g,""),
-      date_start:(cols[3]  || "").replace(/"/g,""),
-      date_end:  (cols[4]  || "").replace(/"/g,""),
-      place:     (cols[5]  || "").replace(/"/g,""),
-      desc:      (cols[7]  || "").replace(/"/g,""),
-      manner:    (cols[9]  || "").replace(/"/g,""),
-      url:       (cols[11] || "").replace(/"/g,""),
-      reserve:   (cols[12] || "").replace(/"/g,""),
-      tags:      (cols[14] || "").replace(/"/g,"").split(",").filter(Boolean),
-      emoji:     (cols[15] || "").replace(/"/g,""),
-      image_url: (cols[17] || "").replace(/"/g,"").trim()
+      cat:       (cols[1]  || "").replace(/"/g,""),
+      tags:      (cols[2]  || "").replace(/"/g,"").split(",").filter(Boolean),
+      emoji:     (cols[3]  || "").replace(/"/g,""),
+      area:      (cols[4]  || "").replace(/"/g,""),
+      title:     (cols[5]  || "").replace(/"/g,""),
+      date_start:(cols[7]  || "").replace(/"/g,""),
+      date_end:  (cols[8]  || "").replace(/"/g,""),
+      place:     (cols[9]  || "").replace(/"/g,""),
+      desc:      (cols[11] || "").replace(/"/g,""),
+      manner:    (cols[13] || "").replace(/"/g,""),
+      url:       (cols[15] || "").replace(/"/g,""),
+      reserve:   (cols[16] || "").replace(/"/g,""),
+      map_url:   (cols[18] || "").replace(/"/g,""),
+      image_url: (cols[26] || "").replace(/"/g,"").trim()
     });
   }
   return events;
@@ -176,7 +189,11 @@ function catLabel(c) {
 
 function renderCards() {
   const app = document.getElementById("app");
-  const filtered = allEvents.filter(ev => (cat === "all" || ev.cat === cat) && inRange(ev));
+  const filtered = allEvents.filter(ev =>
+    (cat === "all" || ev.cat === cat) &&
+    (area === "all" || ev.area === area) &&
+    inRange(ev)
+  );
   if (!filtered.length) {
     app.innerHTML = '<div class="empty">該当するイベントがありません</div>';
     return;
@@ -191,6 +208,7 @@ function renderCards() {
           <span class="badge badge-${ev.cat}">${catLabel(ev.cat)}</span>
           <span class="card-date">${fmtDate(ev.date_start)}${ev.date_start !== ev.date_end ? " – " + fmtDate(ev.date_end) : ""}</span>
         </div>
+        <div style="font-size:11px;color:#999;margin-bottom:5px">📍 ${ev.area}</div>
         <div class="card-title">${ev.title}</div>
         <div class="card-desc">${ev.desc}</div>
       </div>
@@ -209,7 +227,11 @@ function showDetail(idx, events) {
       <div class="detail-box">
         ${ev.image_url ? `<img class="detail-img" src="${ev.image_url}" alt="${ev.title}">` : `<div class="detail-emoji">${ev.emoji || "📅"}</div>`}
         <div class="detail-title">${ev.title}</div>
-        <div class="detail-place">${ev.place}</div>
+        <div class="detail-section">
+          <div class="detail-label">場所</div>
+          <div class="detail-value">${ev.place}</div>
+          ${ev.map_url ? `<a class="detail-link" href="${ev.map_url}" target="_blank" rel="noopener">📍 Googleマップで見る</a>` : ""}
+        </div>
         <div class="detail-section">
           <div class="detail-label">開催日程</div>
           <div class="detail-value">${fmtDate(ev.date_start)} – ${fmtDate(ev.date_end)}</div>
@@ -233,7 +255,15 @@ function showDetail(idx, events) {
     </div>`;
 }
 
-document.querySelectorAll(".btn[data-cat]").forEach(btn => {
+document.querySelectorAll(".btn[data-area]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".btn[data-area]").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    area = btn.dataset.area;
+    renderCards();
+  });
+});
+
   btn.addEventListener("click", () => {
     document.querySelectorAll(".btn[data-cat]").forEach(b => b.classList.remove("active"));
     btn.classList.add("active");
