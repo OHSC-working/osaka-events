@@ -20,7 +20,9 @@ input[type=date]{font-size:13px;padding:6px 10px;border:1px solid #ddd;border-ra
 .cards{max-width:900px;margin:0 auto;padding:0 1.5rem 3rem;display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
 .card{background:#fff;border:1px solid #e5e4e0;border-radius:14px;overflow:hidden;cursor:pointer;transition:box-shadow .15s,transform .15s}
 .card:hover{box-shadow:0 4px 20px rgba(0,0,0,.08);transform:translateY(-2px)}
-.card-img{width:100%;height:110px;display:flex;align-items:center;justify-content:center;font-size:42px;background:#f7f6f3}
+.card-img{width:100%;height:160px;object-fit:cover;background:#f7f6f3}
+.card-img-emoji{width:100%;height:160px;display:flex;align-items:center;justify-content:center;font-size:42px;background:#f7f6f3}
+.detail-img{width:100%;height:220px;object-fit:cover;border-radius:10px;margin-bottom:1rem}
 .card-body{padding:14px}
 .card-meta{display:flex;align-items:center;gap:8px;margin-bottom:7px}
 .badge{font-size:11px;padding:2px 9px;border-radius:10px;font-weight:500}
@@ -120,7 +122,8 @@ function parseCSV(text) {
       url:       (cols[11] || "").replace(/"/g,""),
       reserve:   (cols[12] || "").replace(/"/g,""),
       tags:      (cols[14] || "").replace(/"/g,"").split(",").filter(Boolean),
-      emoji:     (cols[15] || "").replace(/"/g,"")
+      emoji:     (cols[15] || "").replace(/"/g,""),
+      image_url: (cols[18] || "").replace(/"/g,"")
     });
   }
   return events;
@@ -180,7 +183,9 @@ function renderCards() {
   }
   app.innerHTML = `<div class="cards">${filtered.map((ev, i) => `
     <div class="card" data-idx="${i}">
-      <div class="card-img">${ev.emoji || "📅"}</div>
+      ${ev.image_url
+        ? `<img class="card-img" src="${ev.image_url}" alt="${ev.title}" onerror="this.outerHTML='<div class=card-img-emoji>${ev.emoji||'📅'}</div>'">`
+        : `<div class="card-img-emoji">${ev.emoji || "📅"}</div>`}
       <div class="card-body">
         <div class="card-meta">
           <span class="badge badge-${ev.cat}">${catLabel(ev.cat)}</span>
@@ -202,7 +207,7 @@ function showDetail(idx, events) {
   document.getElementById("app").innerHTML = `
     <div class="detail-wrap">
       <div class="detail-box">
-        <div class="detail-emoji">${ev.emoji || "📅"}</div>
+        ${ev.image_url ? `<img class="detail-img" src="${ev.image_url}" alt="${ev.title}">` : `<div class="detail-emoji">${ev.emoji || "📅"}</div>`}
         <div class="detail-title">${ev.title}</div>
         <div class="detail-place">${ev.place}</div>
         <div class="detail-section">
