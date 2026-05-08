@@ -264,6 +264,7 @@ document.querySelectorAll(".btn[data-area]").forEach(btn => {
   });
 });
 
+document.querySelectorAll(".btn[data-cat]").forEach(btn => {
   btn.addEventListener("click", () => {
     document.querySelectorAll(".btn[data-cat]").forEach(b => b.classList.remove("active"));
     btn.classList.add("active");
