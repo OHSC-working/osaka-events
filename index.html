@@ -123,7 +123,7 @@ function parseCSV(text) {
       reserve:   (cols[12] || "").replace(/"/g,""),
       tags:      (cols[14] || "").replace(/"/g,"").split(",").filter(Boolean),
       emoji:     (cols[15] || "").replace(/"/g,""),
-      image_url: (cols[18] || "").replace(/"/g,"")
+      image_url: (cols[18] || "").replace(/"/g,"").trim().replace("uc?export=view&id=","thumbnail?sz=w600&id=")
     });
   }
   return events;
