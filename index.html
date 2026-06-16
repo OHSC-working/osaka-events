@@ -8,7 +8,7 @@
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Helvetica Neue",Arial,sans-serif;background:#f7f6f3;color:#1a1a1a;min-height:100vh}
 header{background:#fff;border-bottom:1px solid #e5e4e0;padding:1.25rem 1.5rem}
-.header-inner{max-width:900px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.header-inner{max-width:900px;margin:0 auto}
 h1{font-size:20px;font-weight:600;letter-spacing:-.3px}
 .subtitle{font-size:12px;color:#888;margin-top:2px}
 .controls{max-width:900px;margin:1.25rem auto;padding:0 1.5rem;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
@@ -22,7 +22,6 @@ input[type=date]{font-size:13px;padding:6px 10px;border:1px solid #ddd;border-ra
 .card:hover{box-shadow:0 4px 20px rgba(0,0,0,.08);transform:translateY(-2px)}
 .card-img{width:100%;height:160px;object-fit:cover;background:#f7f6f3}
 .card-img-emoji{width:100%;height:160px;display:flex;align-items:center;justify-content:center;font-size:42px;background:#f7f6f3}
-.detail-img{width:100%;height:220px;object-fit:cover;border-radius:10px;margin-bottom:1rem}
 .card-body{padding:14px}
 .card-meta{display:flex;align-items:center;gap:8px;margin-bottom:7px}
 .badge{font-size:11px;padding:2px 9px;border-radius:10px;font-weight:500}
@@ -31,21 +30,24 @@ input[type=date]{font-size:13px;padding:6px 10px;border:1px solid #ddd;border-ra
 .badge-art{background:#fef3e2;color:#7a4500}
 .badge-nature{background:#eaf3de;color:#2b5e10}
 .card-date{font-size:11px;color:#999}
+.card-area{font-size:11px;color:#999;margin-bottom:5px}
 .card-title{font-size:15px;font-weight:600;margin-bottom:5px;line-height:1.4}
 .card-desc{font-size:12px;color:#666;line-height:1.6;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 .card-tags{padding:10px 14px;border-top:1px solid #f0ede8;display:flex;flex-wrap:wrap;gap:5px}
 .tag{font-size:11px;color:#999;background:#f7f6f3;padding:2px 8px;border-radius:4px}
 .detail-wrap{max-width:900px;margin:1.5rem auto;padding:0 1.5rem}
 .detail-box{background:#fff;border:1px solid #e5e4e0;border-radius:16px;padding:2rem}
+.detail-img{width:100%;height:220px;object-fit:cover;border-radius:10px;margin-bottom:1rem}
 .detail-emoji{font-size:48px;margin-bottom:.5rem}
 .detail-title{font-size:22px;font-weight:700;margin-bottom:4px}
-.detail-place{font-size:13px;color:#999;margin-bottom:1.25rem}
 .detail-section{margin-bottom:1.25rem}
 .detail-label{font-size:11px;color:#999;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;font-weight:600}
 .detail-value{font-size:14px;color:#333;line-height:1.7}
-.detail-link{color:#2060c8;font-size:14px;text-decoration:none}
+.detail-link{color:#2060c8;font-size:14px;text-decoration:none;display:block;margin-top:4px}
 .detail-link:hover{text-decoration:underline}
 .manner-box{background:#fffbeb;border:1px solid #f5d87a;border-radius:10px;padding:12px 14px;font-size:13px;color:#7a5800;line-height:1.7}
+.yt-wrap{position:relative;padding-bottom:56.25%;height:0;border-radius:10px;overflow:hidden;margin-top:8px}
+.yt-wrap iframe{position:absolute;top:0;left:0;width:100%;height:100%;border:0}
 .back-btn{font-size:13px;padding:8px 16px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;margin-top:1.5rem}
 .back-btn:hover{background:#f7f6f3}
 .empty{text-align:center;padding:4rem;color:#aaa;font-size:14px}
@@ -62,10 +64,8 @@ input[type=date]{font-size:13px;padding:6px 10px;border:1px solid #ddd;border-ra
 
 <header>
   <div class="header-inner">
-    <div>
-      <h1>大阪イベントカレンダー</h1>
-      <div class="subtitle">民泊ゲスト向け — Osaka Event Guide for Guests</div>
-    </div>
+    <h1>大阪イベントカレンダー</h1>
+    <div class="subtitle">民泊ゲスト向け — Osaka Event Guide for Guests</div>
   </div>
 </header>
 
@@ -89,9 +89,9 @@ input[type=date]{font-size:13px;padding:6px 10px;border:1px solid #ddd;border-ra
   <div class="filters">
     <button class="btn active" data-area="all">すべて</button>
     <button class="btn" data-area="大阪市内">大阪市内</button>
-    <button class="btn" data-area="泉南">泉南</button>
-    <button class="btn" data-area="北摂">北摂</button>
-    <button class="btn" data-area="北河内">北河内</button>
+    <button class="btn" data-area="北大阪">北大阪</button>
+    <button class="btn" data-area="東・南河内">東・南河内</button>
+    <button class="btn" data-area="南大阪・泉州">南大阪・泉州</button>
   </div>
 </div>
 
@@ -105,6 +105,21 @@ let cat = "all";
 let area = "all";
 let dateFrom = null;
 let dateTo = null;
+
+// YouTubeのURLから埋め込みIDを取得
+function getYouTubeId(url) {
+  if (!url) return null;
+  const patterns = [
+    /youtube\.com\/watch\?v=([^&]+)/,
+    /youtu\.be\/([^?]+)/,
+    /youtube\.com\/embed\/([^?]+)/
+  ];
+  for (const p of patterns) {
+    const m = url.match(p);
+    if (m) return m[1];
+  }
+  return null;
+}
 
 function parseCSV(text) {
   const lines = text.trim().split("\n");
@@ -136,7 +151,8 @@ function parseCSV(text) {
       url:       (cols[15] || "").replace(/"/g,""),
       reserve:   (cols[16] || "").replace(/"/g,""),
       map_url:   (cols[18] || "").replace(/"/g,""),
-      image_url: (cols[22] || "").replace(/"/g,"").trim()
+      image_url: (cols[22] || "").replace(/"/g,"").trim(),
+      youtube:   (cols[23] || "").replace(/"/g,"").trim()
     });
   }
   return events;
@@ -151,19 +167,12 @@ async function loadEvents() {
     const text = await res.text();
     allEvents = parseCSV(text);
     if (allEvents.length === 0) {
-      app.innerHTML = '<div class="empty">スプレッドシートにQ列（公開フラグ）がTRUEのデータがありません</div>';
+      app.innerHTML = '<div class="empty">スプレッドシートに「公開」のデータがありません</div>';
       return;
     }
     renderCards();
   } catch(e) {
-    app.innerHTML = `
-      <div class="error-box">
-        <div class="error-msg">
-          ⚠️ データの読み込みに失敗しました。<br>
-          スプレッドシートの公開設定を確認してください。<br>
-          <small>エラー: ${e.message}</small>
-        </div>
-      </div>`;
+    app.innerHTML = `<div class="error-box"><div class="error-msg">⚠️ データの読み込みに失敗しました。<br><small>エラー: ${e.message}</small></div></div>`;
   }
 }
 
@@ -208,7 +217,7 @@ function renderCards() {
           <span class="badge badge-${ev.cat}">${catLabel(ev.cat)}</span>
           <span class="card-date">${fmtDate(ev.date_start)}${ev.date_start !== ev.date_end ? " – " + fmtDate(ev.date_end) : ""}</span>
         </div>
-        <div style="font-size:11px;color:#999;margin-bottom:5px">📍 ${ev.area}</div>
+        <div class="card-area">📍 ${ev.area}</div>
         <div class="card-title">${ev.title}</div>
         <div class="card-desc">${ev.desc}</div>
       </div>
@@ -222,24 +231,34 @@ function renderCards() {
 
 function showDetail(idx, events) {
   const ev = events[idx];
+  const ytId = getYouTubeId(ev.youtube);
   document.getElementById("app").innerHTML = `
     <div class="detail-wrap">
       <div class="detail-box">
-        ${ev.image_url ? `<img class="detail-img" src="${ev.image_url}" alt="${ev.title}">` : `<div class="detail-emoji">${ev.emoji || "📅"}</div>`}
+        ${ev.image_url
+          ? `<img class="detail-img" src="${ev.image_url}" alt="${ev.title}">`
+          : `<div class="detail-emoji">${ev.emoji || "📅"}</div>`}
         <div class="detail-title">${ev.title}</div>
+        <div class="detail-section">
+          <div class="detail-label">開催日程</div>
+          <div class="detail-value">${fmtDate(ev.date_start)} – ${fmtDate(ev.date_end)}</div>
+        </div>
         <div class="detail-section">
           <div class="detail-label">場所</div>
           <div class="detail-value">${ev.place}</div>
           ${ev.map_url ? `<a class="detail-link" href="${ev.map_url}" target="_blank" rel="noopener">📍 Googleマップで見る</a>` : ""}
         </div>
         <div class="detail-section">
-          <div class="detail-label">開催日程</div>
-          <div class="detail-value">${fmtDate(ev.date_start)} – ${fmtDate(ev.date_end)}</div>
-        </div>
-        <div class="detail-section">
           <div class="detail-label">概要</div>
           <div class="detail-value">${ev.desc}</div>
         </div>
+        ${ytId ? `
+        <div class="detail-section">
+          <div class="detail-label">動画で見る</div>
+          <div class="yt-wrap">
+            <iframe src="https://www.youtube.com/embed/${ytId}" allowfullscreen></iframe>
+          </div>
+        </div>` : ""}
         <div class="detail-section">
           <div class="detail-label">予約・参加方法</div>
           <div class="detail-value">${ev.reserve}</div>
@@ -272,6 +291,7 @@ document.querySelectorAll(".btn[data-cat]").forEach(btn => {
     renderCards();
   });
 });
+
 document.getElementById("date-from").addEventListener("change", e => { dateFrom = e.target.value; renderCards(); });
 document.getElementById("date-to").addEventListener("change",   e => { dateTo   = e.target.value; renderCards(); });
 
