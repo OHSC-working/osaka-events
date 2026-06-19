@@ -11,6 +11,14 @@ header{background:#fff;border-bottom:1px solid #e5e4e0;padding:1.25rem 1.5rem}
 .header-inner{max-width:900px;margin:0 auto}
 h1{font-size:20px;font-weight:600;letter-spacing:-.3px}
 .subtitle{font-size:12px;color:#888;margin-top:2px}
+
+/* 定期開催セクション */
+.regular-section{max-width:900px;margin:1rem auto 0;padding:0 1.5rem}
+.regular-box{background:#fff7e6;border:1px solid #f3d98a;border-radius:14px;padding:14px 18px}
+.regular-title{font-size:13px;font-weight:600;color:#8a6300;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.regular-item{font-size:13px;color:#6b4e00;line-height:1.8;display:flex;gap:8px;align-items:baseline}
+.regular-item .ri-emoji{font-size:15px}
+
 .controls{max-width:900px;margin:1.25rem auto;padding:0 1.5rem;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .date-wrap{display:flex;align-items:center;gap:6px;font-size:13px;color:#666}
 input[type=date]{font-size:13px;padding:6px 10px;border:1px solid #ddd;border-radius:8px;background:#fff;color:#1a1a1a}
@@ -23,18 +31,13 @@ input[type=date]{font-size:13px;padding:6px 10px;border:1px solid #ddd;border-ra
 .card-img{width:100%;height:160px;object-fit:cover;background:#f7f6f3}
 .card-img-emoji{width:100%;height:160px;display:flex;align-items:center;justify-content:center;font-size:42px;background:#f7f6f3}
 .card-body{padding:14px}
-.card-meta{display:flex;align-items:center;gap:8px;margin-bottom:7px}
-.badge{font-size:11px;padding:2px 9px;border-radius:10px;font-weight:500}
-.badge-matsuri{background:#f0eefe;color:#5240b8}
-.badge-food{background:#e1f5ee;color:#0a5e48}
-.badge-art{background:#fef3e2;color:#7a4500}
-.badge-nature{background:#eaf3de;color:#2b5e10}
+.card-meta{display:flex;align-items:center;gap:8px;margin-bottom:7px;flex-wrap:wrap}
+.badge{font-size:11px;padding:2px 9px;border-radius:10px;font-weight:500;background:#f0eefe;color:#5240b8}
+.badge-unconfirmed{background:#fff0e0;color:#a85d00}
 .card-date{font-size:11px;color:#999}
 .card-area{font-size:11px;color:#999;margin-bottom:5px}
 .card-title{font-size:15px;font-weight:600;margin-bottom:5px;line-height:1.4}
 .card-desc{font-size:12px;color:#666;line-height:1.6;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
-.card-tags{padding:10px 14px;border-top:1px solid #f0ede8;display:flex;flex-wrap:wrap;gap:5px}
-.tag{font-size:11px;color:#999;background:#f7f6f3;padding:2px 8px;border-radius:4px}
 .detail-wrap{max-width:900px;margin:1.5rem auto;padding:0 1.5rem}
 .detail-box{background:#fff;border:1px solid #e5e4e0;border-radius:16px;padding:2rem}
 .detail-img{width:100%;height:220px;object-fit:cover;border-radius:10px;margin-bottom:1rem}
@@ -69,6 +72,13 @@ input[type=date]{font-size:13px;padding:6px 10px;border:1px solid #ddd;border-ra
   </div>
 </header>
 
+<div class="regular-section" id="regular-section" style="display:none">
+  <div class="regular-box">
+    <div class="regular-title">📌 定期開催イベント（いつでも楽しめます）</div>
+    <div id="regular-list"></div>
+  </div>
+</div>
+
 <div class="controls">
   <div class="date-wrap">
     <span>チェックイン</span>
@@ -76,16 +86,6 @@ input[type=date]{font-size:13px;padding:6px 10px;border:1px solid #ddd;border-ra
     <span>〜</span>
     <input type="date" id="date-to">
   </div>
-  <div class="filters">
-    <button class="btn active" data-cat="all">すべて</button>
-    <button class="btn" data-cat="matsuri">祭り</button>
-    <button class="btn" data-cat="food">食</button>
-    <button class="btn" data-cat="art">アート</button>
-    <button class="btn" data-cat="nature">自然</button>
-  </div>
-</div>
-<div class="controls" style="margin-top:-8px">
-  <div class="date-wrap"><span>📍 エリア</span></div>
   <div class="filters">
     <button class="btn active" data-area="all">すべて</button>
     <button class="btn" data-area="大阪市内">大阪市内</button>
@@ -101,12 +101,10 @@ input[type=date]{font-size:13px;padding:6px 10px;border:1px solid #ddd;border-ra
 const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRKTG6J-epN19t79VjesPdo5iskeBC1C7coYDjY1dAMIt5C-asJjwYeY87WtFGExhviGprXVzmzXc0B/pub?gid=0&single=true&output=csv";
 
 let allEvents = [];
-let cat = "all";
 let area = "all";
 let dateFrom = null;
 let dateTo = null;
 
-// YouTubeのURLから埋め込みIDを取得
 function getYouTubeId(url) {
   if (!url) return null;
   const patterns = [
@@ -133,26 +131,27 @@ function parseCSV(text) {
       else { cur += c; }
     }
     cols.push(cur.trim());
+    const clean = (idx) => (cols[idx] || "").replace(/"/g,"").trim();
 
-    const flag = (cols[20] || "").replace(/"/g,"").trim();
-    if (flag !== "公開") continue;
+    const status = clean(10);
+    if (status !== "公開") continue;
 
     events.push({
-      cat:       (cols[1]  || "").replace(/"/g,""),
-      tags:      (cols[2]  || "").replace(/"/g,"").split(",").filter(Boolean),
-      emoji:     (cols[3]  || "").replace(/"/g,""),
-      area:      (cols[4]  || "").replace(/"/g,""),
-      title:     (cols[5]  || "").replace(/"/g,""),
-      date_start:(cols[7]  || "").replace(/"/g,""),
-      date_end:  (cols[8]  || "").replace(/"/g,""),
-      place:     (cols[9]  || "").replace(/"/g,""),
-      desc:      (cols[11] || "").replace(/"/g,""),
-      manner:    (cols[13] || "").replace(/"/g,""),
-      url:       (cols[15] || "").replace(/"/g,""),
-      reserve:   (cols[16] || "").replace(/"/g,""),
-      map_url:   (cols[18] || "").replace(/"/g,""),
-      image_url: (cols[22] || "").replace(/"/g,"").trim(),
-      youtube:   (cols[23] || "").replace(/"/g,"").trim()
+      title:        clean(4),
+      date_start:   clean(5),
+      date_end:     clean(6),
+      date_confirmed: clean(7),
+      is_regular:   clean(8),
+      regular_note: clean(9),
+      area:         clean(11),
+      place:        clean(12),
+      map_url:      clean(13),
+      desc:         clean(14),
+      manner:       clean(15),
+      url:          clean(16),
+      reserve:      clean(17),
+      youtube:      clean(18),
+      image_url:    clean(20)
     });
   }
   return events;
@@ -170,15 +169,38 @@ async function loadEvents() {
       app.innerHTML = '<div class="empty">スプレッドシートに「公開」のデータがありません</div>';
       return;
     }
+    renderRegular();
     renderCards();
   } catch(e) {
     app.innerHTML = `<div class="error-box"><div class="error-msg">⚠️ データの読み込みに失敗しました。<br><small>エラー: ${e.message}</small></div></div>`;
   }
 }
 
+function renderRegular() {
+  const regulars = allEvents.filter(ev => ev.is_regular === "YES");
+  const section = document.getElementById("regular-section");
+  const list = document.getElementById("regular-list");
+  if (!regulars.length) { section.style.display = "none"; return; }
+  section.style.display = "block";
+  list.innerHTML = regulars.map(ev => `
+    <div class="regular-item" data-title="${ev.title}">
+      <span class="ri-emoji">📍</span>
+      <span><strong>${ev.title}</strong>（${ev.area}）— ${ev.regular_note || "詳細は備考欄を確認"}</span>
+    </div>`).join("");
+  list.querySelectorAll(".regular-item").forEach(item => {
+    item.style.cursor = "pointer";
+    item.addEventListener("click", () => {
+      const ev = regulars.find(e => e.title === item.dataset.title);
+      showDetail(ev);
+    });
+  });
+}
+
 function inRange(ev) {
   if (!dateFrom && !dateTo) return true;
+  if (!ev.date_start || !ev.date_end) return true;
   const s = new Date(ev.date_start), e = new Date(ev.date_end);
+  if (isNaN(s) || isNaN(e)) return true;
   if (dateFrom && dateTo) { const f = new Date(dateFrom), t = new Date(dateTo); return s <= t && e >= f; }
   if (dateFrom) return e >= new Date(dateFrom);
   if (dateTo)   return s <= new Date(dateTo);
@@ -192,14 +214,11 @@ function fmtDate(d) {
   return dt.toLocaleDateString("ja-JP", {month:"short", day:"numeric"});
 }
 
-function catLabel(c) {
-  return {matsuri:"祭り", food:"食", art:"アート", nature:"自然"}[c] || c;
-}
-
 function renderCards() {
   const app = document.getElementById("app");
+  // 通常イベント（定期開催は一覧カードに出さず上部のみに表示）
   const filtered = allEvents.filter(ev =>
-    (cat === "all" || ev.cat === cat) &&
+    ev.is_regular !== "YES" &&
     (area === "all" || ev.area === area) &&
     inRange(ev)
   );
@@ -210,38 +229,40 @@ function renderCards() {
   app.innerHTML = `<div class="cards">${filtered.map((ev, i) => `
     <div class="card" data-idx="${i}">
       ${ev.image_url
-        ? `<img class="card-img" src="${ev.image_url}" alt="${ev.title}" onerror="this.outerHTML='<div class=card-img-emoji>${ev.emoji||'📅'}</div>'">`
-        : `<div class="card-img-emoji">${ev.emoji || "📅"}</div>`}
+        ? `<img class="card-img" src="${ev.image_url}" alt="${ev.title}" onerror="this.outerHTML='<div class=card-img-emoji>📅</div>'">`
+        : `<div class="card-img-emoji">📅</div>`}
       <div class="card-body">
         <div class="card-meta">
-          <span class="badge badge-${ev.cat}">${catLabel(ev.cat)}</span>
+          ${ev.date_confirmed && ev.date_confirmed !== "確定" ? `<span class="badge badge-unconfirmed">日程未確定</span>` : ""}
           <span class="card-date">${fmtDate(ev.date_start)}${ev.date_start !== ev.date_end ? " – " + fmtDate(ev.date_end) : ""}</span>
         </div>
         <div class="card-area">📍 ${ev.area}</div>
         <div class="card-title">${ev.title}</div>
         <div class="card-desc">${ev.desc}</div>
       </div>
-      <div class="card-tags">${ev.tags.map(t=>`<span class="tag">${t}</span>`).join("")}</div>
     </div>`).join("")}</div>`;
 
   document.querySelectorAll(".card").forEach(card => {
-    card.addEventListener("click", () => showDetail(parseInt(card.dataset.idx), filtered));
+    card.addEventListener("click", () => showDetail(filtered[parseInt(card.dataset.idx)]));
   });
 }
 
-function showDetail(idx, events) {
-  const ev = events[idx];
+function showDetail(ev) {
   const ytId = getYouTubeId(ev.youtube);
   document.getElementById("app").innerHTML = `
     <div class="detail-wrap">
       <div class="detail-box">
         ${ev.image_url
           ? `<img class="detail-img" src="${ev.image_url}" alt="${ev.title}">`
-          : `<div class="detail-emoji">${ev.emoji || "📅"}</div>`}
+          : `<div class="detail-emoji">📅</div>`}
         <div class="detail-title">${ev.title}</div>
         <div class="detail-section">
           <div class="detail-label">開催日程</div>
-          <div class="detail-value">${fmtDate(ev.date_start)} – ${fmtDate(ev.date_end)}</div>
+          <div class="detail-value">
+            ${ev.is_regular === "YES"
+              ? (ev.regular_note || "定期開催")
+              : `${fmtDate(ev.date_start)} – ${fmtDate(ev.date_end)}${ev.date_confirmed && ev.date_confirmed !== "確定" ? "（日程未確定）" : ""}`}
+          </div>
         </div>
         <div class="detail-section">
           <div class="detail-label">場所</div>
@@ -255,9 +276,7 @@ function showDetail(idx, events) {
         ${ytId ? `
         <div class="detail-section">
           <div class="detail-label">動画で見る</div>
-          <div class="yt-wrap">
-            <iframe src="https://www.youtube.com/embed/${ytId}" allowfullscreen></iframe>
-          </div>
+          <div class="yt-wrap"><iframe src="https://www.youtube.com/embed/${ytId}" allowfullscreen></iframe></div>
         </div>` : ""}
         <div class="detail-section">
           <div class="detail-label">予約・参加方法</div>
@@ -266,7 +285,7 @@ function showDetail(idx, events) {
         </div>
         ${ev.manner ? `
         <div class="detail-section">
-          <div class="detail-label">知っておくべきマナー</div>
+          <div class="detail-label">知っておくべきマナー・注意事項</div>
           <div class="manner-box">${ev.manner}</div>
         </div>` : ""}
         <button class="back-btn" onclick="renderCards()">← 一覧に戻る</button>
@@ -279,15 +298,6 @@ document.querySelectorAll(".btn[data-area]").forEach(btn => {
     document.querySelectorAll(".btn[data-area]").forEach(b => b.classList.remove("active"));
     btn.classList.add("active");
     area = btn.dataset.area;
-    renderCards();
-  });
-});
-
-document.querySelectorAll(".btn[data-cat]").forEach(btn => {
-  btn.addEventListener("click", () => {
-    document.querySelectorAll(".btn[data-cat]").forEach(b => b.classList.remove("active"));
-    btn.classList.add("active");
-    cat = btn.dataset.cat;
     renderCards();
   });
 });
