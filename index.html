@@ -115,21 +115,36 @@ const areaMatch = ev => area === "all" || ev.area === "どちらも" || areaGrou
 const catMatch = ev => cat === "all" || (cat === "sports") === isSports(ev);
 const isSports = ev => ev.sports || ["スポーツ", "yes", "はい", "○", "true"].includes(String(ev.category).toLowerCase());
 function esc(t) { return String(t || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"/g,"&quot;"); }
-function placeholderHTML(title, sports) {
-return `<div class="card-img-emoji${sports ? " sports" : ""}"><span class="ph-icon">${sports ? "⚽" : "🎉"}</span><span class="ph-title">${esc(title)}</span></div>`;
+// 写真がないときの絵文字：スポーツはタイトルから競技を判定（該当なしは🏅）、それ以外は🎉
+const SPORT_ICONS = [
+[/バレー|ブルテオン|マーヴェラス|SV\.?LEAGUE/i, "🏐"],
+[/バスケ|エヴェッサ|B\.?LEAGUE/i, "🏀"],
+[/野球|オリックス|バファローズ|阪神|タイガース|甲子園|クライマックス/, "⚾"],
+[/ラグビー|花園/, "🏉"],
+[/マラソン|駅伝/, "🏃"],
+[/相撲|場所/, "🤼"],
+[/サッカー|セレッソ|ガンバ|J1|J2|天皇杯|ACL|チャンピオンズリーグ|日本代表/, "⚽"]
+];
+function iconFor(ev) {
+if (!isSports(ev)) return "🎉";
+const hit = SPORT_ICONS.find(([re]) => re.test(ev.title));
+return hit ? hit[1] : "🏅";
+}
+function placeholderHTML(title, icon, sports) {
+return `<div class="card-img-emoji${sports ? " sports" : ""}"><span class="ph-icon">${icon}</span><span class="ph-title">${esc(title)}</span></div>`;
 }
 // 画像の優先順位：①画像URL → ②YouTubeサムネイル → ③タイトル入りプレースホルダー
 function thumbHTML(ev, cls) {
 const yt = getYouTubeId(ev.youtube);
 const ytUrl = yt ? `https://img.youtube.com/vi/${yt}/hqdefault.jpg` : "";
 const src = ev.image_url || ytUrl;
-if (!src) return placeholderHTML(ev.title, isSports(ev));
+if (!src) return placeholderHTML(ev.title, iconFor(ev), isSports(ev));
 const next = (ev.image_url && ytUrl) ? ytUrl : "";
-return `<img class="${cls}" src="${esc(src)}" alt="${esc(ev.title)}" loading="lazy" data-next="${esc(next)}" data-title="${esc(ev.title)}" data-sports="${isSports(ev) ? 1 : ""}" onerror="imgFail(this)">`;
+return `<img class="${cls}" src="${esc(src)}" alt="${esc(ev.title)}" loading="lazy" data-next="${esc(next)}" data-title="${esc(ev.title)}" data-sports="${isSports(ev) ? 1 : ""}" data-icon="${iconFor(ev)}" onerror="imgFail(this)">`;
 }
 function imgFail(img) {
 if (img.dataset.next) { const n = img.dataset.next; img.dataset.next = ""; img.src = n; return; }
-img.outerHTML = placeholderHTML(img.dataset.title, !!img.dataset.sports);
+img.outerHTML = placeholderHTML(img.dataset.title, img.dataset.icon, !!img.dataset.sports);
 }
 function getYouTubeId(url) {
 if (!url) return null;
