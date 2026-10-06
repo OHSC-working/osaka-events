@@ -21,6 +21,7 @@ h1{font-size:21px;font-weight:600;letter-spacing:-.3px;color:#2E2C28}
 .date-wrap{display:flex;align-items:center;gap:6px;font-size:13px;color:#8C887E}
 input[type=date]{font-size:13px;padding:6px 10px;border:1px solid #E3DED2;border-radius:8px;background:#fff;color:#2E2C28}
 .filters{display:flex;flex-wrap:wrap;gap:6px;margin-left:auto}
+.filter-sep{width:1px;background:#D8D3C8;margin:0 4px}
 .btn{font-size:12px;padding:5px 14px;border:1px solid #E3DED2;border-radius:20px;background:#fff;color:#8C887E;cursor:pointer;transition:all .15s}
 .btn.active{background:#2E2C28;color:#fff;border-color:#2E2C28}
 .cards{max-width:900px;margin:0 auto;padding:0 1.5rem 3rem;display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
@@ -89,23 +90,33 @@ input[type=date]{font-size:13px;padding:6px 10px;border:1px solid #E3DED2;border
 <button class="btn active" data-area="all">すべて</button>
 <button class="btn" data-area="大阪市内">大阪市内</button>
 <button class="btn" data-area="大阪市外">大阪市外</button>
-<button class="btn active" id="sports-toggle" aria-pressed="true">⚽ スポーツを表示中</button>
+<span class="filter-sep"></span>
+<button class="btn active" data-cat="all">🎉⚽ スポーツも含む</button>
+<button class="btn" data-cat="event">🎉 スポーツを含まない</button>
+<button class="btn" data-cat="sports">⚽ スポーツのみ</button>
 </div>
 </div>
 <div id="app"></div>
 <script>
-const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRKTG6J-epN19t79VjesPdo5iskeBC1C7coYDjY1dAMIt5C-asJjwYeY87WtFGExhviGprXVzmzXc0B/pub?gid=0&single=true&output=csv";
+const CSV_BASE = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRKTG6J-epN19t79VjesPdo5iskeBC1C7coYDjY1dAMIt5C-asJjwYeY87WtFGExhviGprXVzmzXc0B/pub?single=true&output=csv&gid=";
+// 読み込むタブ：「記入欄」（必須）と「スポーツ」（読めなければ無視。このタブの行はすべてスポーツ扱い）
+const SHEETS = [
+{ gid: "0", required: true, sports: false },
+{ gid: "1546542324", required: false, sports: true }
+];
 let allEvents = [];
 let area = "all";
 let dateFrom = null;
 let dateTo = null;
-let showSports = true;
-// エリア：シートが「大阪市内」以外（北大阪・泉州・兵庫など）は全て「大阪市外」として扱う
+let cat = "all";
+// エリア：「どちらも」は両方に表示。「大阪市内」以外（北大阪・泉州・兵庫など旧区分も）は「大阪市外」として扱う
 const areaGroup = a => a === "大阪市内" ? "大阪市内" : "大阪市外";
-const isSports = ev => ev.category === "スポーツ";
+const areaMatch = ev => area === "all" || ev.area === "どちらも" || areaGroup(ev.area) === area;
+const catMatch = ev => cat === "all" || (cat === "sports") === isSports(ev);
+const isSports = ev => ev.sports || ["スポーツ", "yes", "はい", "○", "true"].includes(String(ev.category).toLowerCase());
 function esc(t) { return String(t || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"/g,"&quot;"); }
 function placeholderHTML(title, sports) {
-return `<div class="card-img-emoji${sports ? " sports" : ""}"><span class="ph-icon">${sports ? "⚽" : "🏮"}</span><span class="ph-title">${esc(title)}</span></div>`;
+return `<div class="card-img-emoji${sports ? " sports" : ""}"><span class="ph-icon">${sports ? "⚽" : "🎉"}</span><span class="ph-title">${esc(title)}</span></div>`;
 }
 // 画像の優先順位：①画像URL → ②YouTubeサムネイル → ③タイトル入りプレースホルダー
 function thumbHTML(ev, cls) {
@@ -133,40 +144,49 @@ if (m) return m[1];
 }
 return null;
 }
-function parseCSV(text) {
-const lines = text.trim().split("\n");
-const events = [];
-for (let i = 1; i < lines.length; i++) {
-const cols = [];
-let cur = "", inQ = false;
-for (let c of lines[i]) {
-if (c === '"') { inQ = !inQ; }
-else if (c === "," && !inQ) { cols.push(cur.trim()); cur = ""; }
-else { cur += c; }
+// CSVを行×列に分解（"…" 内のカンマ・改行・"" エスケープに対応）
+function splitCSV(text) {
+const rows = [];
+let row = [], cur = "", inQ = false;
+for (let i = 0; i < text.length; i++) {
+const c = text[i];
+if (inQ) {
+if (c === '"' && text[i + 1] === '"') { cur += '"'; i++; }
+else if (c === '"') inQ = false;
+else cur += c;
+} else if (c === '"') inQ = true;
+else if (c === ",") { row.push(cur); cur = ""; }
+else if (c === "\n") { row.push(cur); rows.push(row); row = []; cur = ""; }
+else if (c !== "\r") cur += c;
 }
-cols.push(cur.trim());
-const clean = (idx) => (cols[idx] || "").replace(/"/g,"").trim();
-const status = clean(1);
-if (status !== "公開") continue;
-const regular_note = clean(6);
-events.push({
-title: clean(2),
-date_start: clean(3),
-date_end: clean(4),
-date_confirmed: clean(5),
-is_regular: regular_note ? "YES" : "NO",
-regular_note: regular_note,
-area: clean(7),
-place: clean(8),
-map_url: clean(9),
-desc: clean(10),
-manner: clean(11),
-url: clean(12),
-reserve: clean(13),
-youtube: clean(14),
-image_url: clean(15),
-category: clean(17)
-});
+row.push(cur); rows.push(row);
+return rows;
+}
+// 列は見出し名で探す（シートの列を追加・移動しても壊れない）。名前は複数候補可。見つからなければ従来の列番号
+const COLS = {
+status: ["Status", 1], title: ["タイトル", 2], date_start: ["開始日", 3], date_end: ["終了日", 4],
+date_confirmed: ["日程ステータス", 5], regular_note: ["定期開催かどうか", 6], area: ["エリア", 7],
+place: ["場所・地名", 8], map_url: ["GoogleMap", 9], desc: ["概要", 10], manner: ["注意事項", 11],
+url: ["公式URL", 12], reserve: ["予約方法", 13], youtube: ["紹介youtube_English(URL)", 14],
+image_url: ["画像URL", 15], category: [["スポーツイベントかどうか", "カテゴリ"], 16]
+};
+function parseCSV(text) {
+const rows = splitCSV(text.trim());
+const header = rows[0].map(h => h.trim());
+const idx = {};
+for (const [key, [name, fallback]] of Object.entries(COLS)) {
+const i = [].concat(name).map(n => header.indexOf(n)).find(n => n >= 0) ?? -1;
+idx[key] = i >= 0 ? i : fallback;
+}
+const events = [];
+for (let r = 1; r < rows.length; r++) {
+const cols = rows[r];
+const get = key => (cols[idx[key]] || "").trim();
+if (get("status") !== "公開") continue;
+const ev = {};
+for (const key of Object.keys(COLS)) if (key !== "status") ev[key] = get(key);
+ev.is_regular = ev.regular_note ? "YES" : "NO";
+events.push(ev);
 }
 return events;
 }
@@ -174,10 +194,19 @@ async function loadEvents() {
 const app = document.getElementById("app");
 app.innerHTML = '<div class="loading">イベント情報を読み込み中...</div>';
 try {
-const res = await fetch(CSV_URL);
+const results = await Promise.all(SHEETS.map(async sh => {
+try {
+const res = await fetch(CSV_BASE + sh.gid);
 if (!res.ok) throw new Error("fetch failed");
-const text = await res.text();
-allEvents = parseCSV(text);
+const evs = parseCSV(await res.text());
+if (sh.sports) evs.forEach(ev => ev.sports = true);
+return evs;
+} catch (e) {
+if (sh.required) throw e;
+return [];
+}
+}));
+allEvents = results.flat();
 if (allEvents.length === 0) {
 app.innerHTML = '<div class="empty">スプレッドシートに「公開」のデータがありません</div>';
 return;
@@ -234,8 +263,8 @@ const app = document.getElementById("app");
 const today = new Date(); today.setHours(0,0,0,0);
 const filtered = allEvents.filter(ev =>
 ev.is_regular !== "YES" &&
-(area === "all" || areaGroup(ev.area) === area) &&
-(showSports || !isSports(ev)) &&
+areaMatch(ev) &&
+catMatch(ev) &&
 inRange(ev) &&
 isUpcoming(ev, today)
 ).sort((a, b) => {
@@ -320,13 +349,13 @@ area = btn.dataset.area;
 renderCards();
 });
 });
-document.getElementById("sports-toggle").addEventListener("click", e => {
-showSports = !showSports;
-const b = e.currentTarget;
-b.classList.toggle("active", showSports);
-b.setAttribute("aria-pressed", showSports);
-b.textContent = showSports ? "⚽ スポーツを表示中" : "⚽ スポーツ非表示";
+document.querySelectorAll(".btn[data-cat]").forEach(btn => {
+btn.addEventListener("click", () => {
+document.querySelectorAll(".btn[data-cat]").forEach(b => b.classList.remove("active"));
+btn.classList.add("active");
+cat = btn.dataset.cat;
 renderCards();
+});
 });
 document.getElementById("date-from").addEventListener("change", e => { dateFrom = e.target.value; renderCards(); });
 document.getElementById("date-to").addEventListener("change", e => { dateTo = e.target.value; renderCards(); });
