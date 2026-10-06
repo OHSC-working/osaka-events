@@ -27,11 +27,7 @@ input[type=date]{font-size:13px;padding:6px 10px;border:1px solid #E3DED2;border
 .card{background:#fff;border:1px solid #E9E4D8;border-radius:14px;overflow:hidden;cursor:pointer;transition:box-shadow .15s,transform .15s}
 .card:hover{box-shadow:0 4px 20px rgba(46,44,40,.10);transform:translateY(-2px)}
 .card-img{width:100%;height:auto;max-height:220px;object-fit:contain;background:#F0ECE2;display:block}
-.card-img-emoji{width:100%;height:160px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:#E9E4D8;color:#45433D;padding:0 18px;text-align:center}
-.ph-icon{font-size:34px;line-height:1}
-.ph-title{font-size:14px;font-weight:600;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.card-img-emoji.sports{background:#DCE2DF}
-.badge-sports{background:#2E2C28;color:#fff}
+.card-img-emoji{width:100%;height:160px;display:flex;align-items:center;justify-content:center;font-size:42px;background:#F0ECE2}
 .card-body{padding:14px}
 .card-meta{display:flex;align-items:center;gap:8px;margin-bottom:7px;flex-wrap:wrap}
 .badge{font-size:11px;padding:2px 9px;border-radius:10px;font-weight:500;background:#EFEBE1;color:#57534A}
@@ -55,8 +51,8 @@ input[type=date]{font-size:13px;padding:6px 10px;border:1px solid #E3DED2;border
 .yt-wrap iframe{position:absolute;top:0;left:0;width:100%;height:100%;border:0}
 .back-btn{font-size:13px;padding:8px 16px;border:1px solid #E3DED2;border-radius:8px;background:#fff;color:#8C887E;cursor:pointer;margin-top:1.5rem}
 .back-btn:hover{background:#F0ECE2}
-.empty{text-align:center;padding:4rem;color:#45433D;font-size:14px}
-.loading{text-align:center;padding:4rem;color:#45433D;font-size:14px}
+.empty{text-align:center;padding:4rem;color:#B6AF9F;font-size:14px}
+.loading{text-align:center;padding:4rem;color:#B6AF9F;font-size:14px}
 .error-box{max-width:900px;margin:2rem auto;padding:0 1.5rem}
 .error-msg{background:#F7F0EC;border:1px solid #E2CFC2;border-radius:10px;padding:1rem 1.25rem;font-size:13px;color:#8C4A3A}
 @media(max-width:600px){
@@ -88,8 +84,9 @@ input[type=date]{font-size:13px;padding:6px 10px;border:1px solid #E3DED2;border
 <div class="filters">
 <button class="btn active" data-area="all">すべて</button>
 <button class="btn" data-area="大阪市内">大阪市内</button>
-<button class="btn" data-area="大阪市外">大阪市外</button>
-<button class="btn active" id="sports-toggle" aria-pressed="true">⚽ スポーツを表示中</button>
+<button class="btn" data-area="北大阪">北大阪</button>
+<button class="btn" data-area="東・南河内">東・南河内</button>
+<button class="btn" data-area="南大阪・泉州">南大阪・泉州</button>
 </div>
 </div>
 <div id="app"></div>
@@ -99,27 +96,6 @@ let allEvents = [];
 let area = "all";
 let dateFrom = null;
 let dateTo = null;
-let showSports = true;
-// エリア：シートが「大阪市内」以外（北大阪・泉州・兵庫など）は全て「大阪市外」として扱う
-const areaGroup = a => a === "大阪市内" ? "大阪市内" : "大阪市外";
-const isSports = ev => ev.category === "スポーツ";
-function esc(t) { return String(t || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"/g,"&quot;"); }
-function placeholderHTML(title, sports) {
-return `<div class="card-img-emoji${sports ? " sports" : ""}"><span class="ph-icon">${sports ? "⚽" : "🏮"}</span><span class="ph-title">${esc(title)}</span></div>`;
-}
-// 画像の優先順位：①画像URL → ②YouTubeサムネイル → ③タイトル入りプレースホルダー
-function thumbHTML(ev, cls) {
-const yt = getYouTubeId(ev.youtube);
-const ytUrl = yt ? `https://img.youtube.com/vi/${yt}/hqdefault.jpg` : "";
-const src = ev.image_url || ytUrl;
-if (!src) return placeholderHTML(ev.title, isSports(ev));
-const next = (ev.image_url && ytUrl) ? ytUrl : "";
-return `<img class="${cls}" src="${esc(src)}" alt="${esc(ev.title)}" loading="lazy" data-next="${esc(next)}" data-title="${esc(ev.title)}" data-sports="${isSports(ev) ? 1 : ""}" onerror="imgFail(this)">`;
-}
-function imgFail(img) {
-if (img.dataset.next) { const n = img.dataset.next; img.dataset.next = ""; img.src = n; return; }
-img.outerHTML = placeholderHTML(img.dataset.title, !!img.dataset.sports);
-}
 function getYouTubeId(url) {
 if (!url) return null;
 const patterns = [
@@ -164,8 +140,7 @@ manner: clean(11),
 url: clean(12),
 reserve: clean(13),
 youtube: clean(14),
-image_url: clean(15),
-category: clean(17)
+image_url: clean(15)
 });
 }
 return events;
@@ -234,8 +209,7 @@ const app = document.getElementById("app");
 const today = new Date(); today.setHours(0,0,0,0);
 const filtered = allEvents.filter(ev =>
 ev.is_regular !== "YES" &&
-(area === "all" || areaGroup(ev.area) === area) &&
-(showSports || !isSports(ev)) &&
+(area === "all" || ev.area === area) &&
 inRange(ev) &&
 isUpcoming(ev, today)
 ).sort((a, b) => {
@@ -251,10 +225,11 @@ return;
 }
 app.innerHTML = `<div class="cards">${filtered.map((ev, i) => `
 <div class="card" data-idx="${i}">
-${thumbHTML(ev, "card-img")}
+${ev.image_url
+? `<img class="card-img" src="${ev.image_url}" alt="${ev.title}" onerror="this.outerHTML='<div class=card-img-emoji>📅</div>'">`
+: `<div class="card-img-emoji">📅</div>`}
 <div class="card-body">
 <div class="card-meta">
-${isSports(ev) ? `<span class="badge badge-sports">スポーツ</span>` : ""}
 ${ev.date_confirmed && ev.date_confirmed !== "確定" ? `<span class="badge badge-unconfirmed">日程未確定</span>` : ""}
 <span class="card-date">${fmtDate(ev.date_start)}${ev.date_start !== ev.date_end ? " – " + fmtDate(ev.date_end) : ""}</span>
 </div>
@@ -319,14 +294,6 @@ btn.classList.add("active");
 area = btn.dataset.area;
 renderCards();
 });
-});
-document.getElementById("sports-toggle").addEventListener("click", e => {
-showSports = !showSports;
-const b = e.currentTarget;
-b.classList.toggle("active", showSports);
-b.setAttribute("aria-pressed", showSports);
-b.textContent = showSports ? "⚽ スポーツを表示中" : "⚽ スポーツ非表示";
-renderCards();
 });
 document.getElementById("date-from").addEventListener("change", e => { dateFrom = e.target.value; renderCards(); });
 document.getElementById("date-to").addEventListener("change", e => { dateTo = e.target.value; renderCards(); });
