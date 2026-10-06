@@ -91,14 +91,19 @@ input[type=date]{font-size:13px;padding:6px 10px;border:1px solid #E3DED2;border
 <button class="btn" data-area="大阪市内">大阪市内</button>
 <button class="btn" data-area="大阪市外">大阪市外</button>
 <span class="filter-sep"></span>
-<button class="btn active" data-cat="all">全ジャンル</button>
-<button class="btn" data-cat="event">🏮 イベント</button>
-<button class="btn" data-cat="sports">⚽ スポーツ</button>
+<button class="btn active" data-cat="all">🎉⚽ スポーツも含む</button>
+<button class="btn" data-cat="event">🎉 スポーツを含まない</button>
+<button class="btn" data-cat="sports">⚽ スポーツのみ</button>
 </div>
 </div>
 <div id="app"></div>
 <script>
-const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRKTG6J-epN19t79VjesPdo5iskeBC1C7coYDjY1dAMIt5C-asJjwYeY87WtFGExhviGprXVzmzXc0B/pub?gid=0&single=true&output=csv";
+const CSV_BASE = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRKTG6J-epN19t79VjesPdo5iskeBC1C7coYDjY1dAMIt5C-asJjwYeY87WtFGExhviGprXVzmzXc0B/pub?single=true&output=csv&gid=";
+// 読み込むタブ：「記入欄」（必須）と「スポーツ」（読めなければ無視。このタブの行はすべてスポーツ扱い）
+const SHEETS = [
+{ gid: "0", required: true, sports: false },
+{ gid: "1546542324", required: false, sports: true }
+];
 let allEvents = [];
 let area = "all";
 let dateFrom = null;
@@ -108,10 +113,10 @@ let cat = "all";
 const areaGroup = a => a === "大阪市内" ? "大阪市内" : "大阪市外";
 const areaMatch = ev => area === "all" || ev.area === "どちらも" || areaGroup(ev.area) === area;
 const catMatch = ev => cat === "all" || (cat === "sports") === isSports(ev);
-const isSports = ev => ev.category === "スポーツ";
+const isSports = ev => ev.sports || ["スポーツ", "yes", "はい", "○", "true"].includes(String(ev.category).toLowerCase());
 function esc(t) { return String(t || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"/g,"&quot;"); }
 function placeholderHTML(title, sports) {
-return `<div class="card-img-emoji${sports ? " sports" : ""}"><span class="ph-icon">${sports ? "⚽" : "🏮"}</span><span class="ph-title">${esc(title)}</span></div>`;
+return `<div class="card-img-emoji${sports ? " sports" : ""}"><span class="ph-icon">${sports ? "⚽" : "🎉"}</span><span class="ph-title">${esc(title)}</span></div>`;
 }
 // 画像の優先順位：①画像URL → ②YouTubeサムネイル → ③タイトル入りプレースホルダー
 function thumbHTML(ev, cls) {
@@ -157,20 +162,20 @@ else if (c !== "\r") cur += c;
 row.push(cur); rows.push(row);
 return rows;
 }
-// 列は見出し名で探す（シートの列を追加・移動しても壊れない）。見つからなければ従来の列番号
+// 列は見出し名で探す（シートの列を追加・移動しても壊れない）。名前は複数候補可。見つからなければ従来の列番号
 const COLS = {
 status: ["Status", 1], title: ["タイトル", 2], date_start: ["開始日", 3], date_end: ["終了日", 4],
 date_confirmed: ["日程ステータス", 5], regular_note: ["定期開催かどうか", 6], area: ["エリア", 7],
 place: ["場所・地名", 8], map_url: ["GoogleMap", 9], desc: ["概要", 10], manner: ["注意事項", 11],
 url: ["公式URL", 12], reserve: ["予約方法", 13], youtube: ["紹介youtube_English(URL)", 14],
-image_url: ["画像URL", 15], category: ["カテゴリ", 17]
+image_url: ["画像URL", 15], category: [["スポーツイベントかどうか", "カテゴリ"], 16]
 };
 function parseCSV(text) {
 const rows = splitCSV(text.trim());
 const header = rows[0].map(h => h.trim());
 const idx = {};
 for (const [key, [name, fallback]] of Object.entries(COLS)) {
-const i = header.indexOf(name);
+const i = [].concat(name).map(n => header.indexOf(n)).find(n => n >= 0) ?? -1;
 idx[key] = i >= 0 ? i : fallback;
 }
 const events = [];
@@ -189,10 +194,19 @@ async function loadEvents() {
 const app = document.getElementById("app");
 app.innerHTML = '<div class="loading">イベント情報を読み込み中...</div>';
 try {
-const res = await fetch(CSV_URL);
+const results = await Promise.all(SHEETS.map(async sh => {
+try {
+const res = await fetch(CSV_BASE + sh.gid);
 if (!res.ok) throw new Error("fetch failed");
-const text = await res.text();
-allEvents = parseCSV(text);
+const evs = parseCSV(await res.text());
+if (sh.sports) evs.forEach(ev => ev.sports = true);
+return evs;
+} catch (e) {
+if (sh.required) throw e;
+return [];
+}
+}));
+allEvents = results.flat();
 if (allEvents.length === 0) {
 app.innerHTML = '<div class="empty">スプレッドシートに「公開」のデータがありません</div>';
 return;
