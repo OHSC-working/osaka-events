@@ -201,6 +201,8 @@ if (get("status") !== "公開") continue;
 const ev = {};
 for (const key of Object.keys(COLS)) if (key !== "status") ev[key] = get(key);
 ev.is_regular = ev.regular_note ? "YES" : "NO";
+// URL欄に「要確認」などの文字が入っていたら空扱い（リンク切れ・Not Found防止）
+for (const k of ["url", "map_url", "image_url", "youtube"]) if (!/^https?:\/\//i.test(ev[k])) ev[k] = "";
 events.push(ev);
 }
 return events;
