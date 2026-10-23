@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>大阪イベントカレンダー｜Osaka Event Calendar</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Helvetica Neue",Arial,sans-serif;background:#F7F5EF;color:#2E2C28;min-height:100vh}
@@ -60,6 +62,32 @@ input[type=date]{font-size:13px;padding:6px 10px;border:1px solid #E3DED2;border
 .loading{text-align:center;padding:4rem;color:#45433D;font-size:14px}
 .error-box{max-width:900px;margin:2rem auto;padding:0 1.5rem}
 .error-msg{background:#F7F0EC;border:1px solid #E2CFC2;border-radius:10px;padding:1rem 1.25rem;font-size:13px;color:#8C4A3A}
+/* 表示切替・地図 */
+.view-tabs{max-width:900px;margin:1.25rem auto 0;padding:0 1.5rem;display:flex;gap:6px}
+.view-tab{font-size:14px;padding:8px 18px;border:1px solid #E3DED2;border-radius:10px;background:#fff;color:#57534A;cursor:pointer;font-weight:600}
+.view-tab.active{background:#2E2C28;color:#fff;border-color:#2E2C28}
+.map-wrap{max-width:900px;margin:0 auto;padding:0 1.5rem 3rem}
+#map{height:60vh;min-height:320px;border:1px solid #E3DED2;border-radius:14px;background:#EFEBE1}
+.map-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:12px 0}
+.map-bar .note{font-size:12px;color:#8C887E;margin-left:auto}
+.map-msg{font-size:12px;color:#8C4A3A;width:100%}
+.pin{width:34px;height:34px;border-radius:50%;background:#fff;border:2px solid #2E2C28;display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 2px 6px rgba(0,0,0,.25);position:relative}
+.pin.sports{background:#DCE2DF}
+.pin .cnt{position:absolute;top:-6px;right:-8px;background:#2E2C28;color:#fff;font-size:10px;font-weight:700;border-radius:9px;padding:1px 5px;line-height:1.4}
+.pin-me{width:16px;height:16px;border-radius:50%;background:#2F6FD6;border:3px solid #fff;box-shadow:0 0 0 2px #2F6FD6}
+.pop-venue{font-size:12px;color:#8C887E;margin-bottom:6px}
+.pop-item{display:block;width:100%;text-align:left;border:0;background:none;padding:6px 0;border-top:1px solid #EFEBE1;cursor:pointer;font-size:13px;color:#2E2C28;line-height:1.4}
+.pop-item:first-of-type{border-top:0}
+.pop-item small{display:block;color:#8C887E;font-size:11px}
+.map-list{display:flex;flex-direction:column;gap:6px}
+.ml-item{display:flex;align-items:center;gap:12px;background:#fff;border:1px solid #E9E4D8;border-radius:12px;padding:10px 14px;cursor:pointer;text-align:left;width:100%;font:inherit;color:inherit}
+.ml-item:hover{box-shadow:0 2px 10px rgba(46,44,40,.08)}
+.ml-icon{font-size:22px;flex:none;width:28px;text-align:center}
+.ml-main{flex:1;min-width:0}
+.ml-title,.ml-sub{display:block}
+.ml-title{font-size:14px;font-weight:600;color:#2E2C28;line-height:1.4}
+.ml-sub{font-size:12px;color:#8C887E;margin-top:2px}
+.ml-dist{flex:none;font-size:13px;font-weight:600;color:#2F6FD6;font-variant-numeric:tabular-nums}
 @media(max-width:600px){
 .controls{flex-direction:column;align-items:flex-start}
 .filters{margin-left:0}
@@ -79,6 +107,10 @@ input[type=date]{font-size:13px;padding:6px 10px;border:1px solid #E3DED2;border
 <div id="regular-list"></div>
 </div>
 </div>
+<div class="view-tabs">
+<button class="view-tab active" data-view="list">📅 カレンダー</button>
+<button class="view-tab" data-view="map">🗺 地図で探す</button>
+</div>
 <div class="controls">
 <div class="date-wrap">
 <span>チェックイン</span>
@@ -97,6 +129,16 @@ input[type=date]{font-size:13px;padding:6px 10px;border:1px solid #E3DED2;border
 </div>
 </div>
 <div id="app"></div>
+<section class="map-wrap" id="map-view" hidden>
+<div id="map"></div>
+<div class="map-bar">
+<button class="btn active" data-sort="date">📅 日付順</button>
+<button class="btn" data-sort="near">📍 今いる場所から近い順</button>
+<span class="note" id="map-note"></span>
+<div class="map-msg" id="map-msg" hidden></div>
+</div>
+<div class="map-list" id="map-list"></div>
+</section>
 <script>
 const CSV_BASE = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRKTG6J-epN19t79VjesPdo5iskeBC1C7coYDjY1dAMIt5C-asJjwYeY87WtFGExhviGprXVzmzXc0B/pub?single=true&output=csv&gid=";
 // 読み込むタブ：「記入欄」（必須）と「スポーツ」（読めなければ無視。このタブの行はすべてスポーツ扱い）
@@ -109,6 +151,11 @@ let area = "all";
 let dateFrom = null;
 let dateTo = null;
 let cat = "all";
+let view = "list";       // list（カレンダー）／ map（地図）
+let sortMode = "date";   // date（日付順）／ near（近い順）
+let userPos = null;      // 現在地 {lat, lng}
+let map = null, markerLayer = null, meMarker = null;
+const markerByKey = {};
 // エリア：「どちらも」は両方に表示。「大阪市内」以外（北大阪・泉州・兵庫など旧区分も）は「大阪市外」として扱う
 const areaGroup = a => a === "大阪市内" ? "大阪市内" : "大阪市外";
 const areaMatch = ev => area === "all" || ev.area === "どちらも" || areaGroup(ev.area) === area;
@@ -183,7 +230,8 @@ status: ["Status", 1], title: ["タイトル", 2], date_start: ["開始日", 3],
 date_confirmed: ["日程ステータス", 5], regular_note: ["定期開催かどうか", 6], area: ["エリア", 7],
 place: ["場所・地名", 8], map_url: ["GoogleMap", 9], desc: ["概要", 10], manner: ["注意事項", 11],
 url: ["公式URL", 12], reserve: ["予約方法", 13], youtube: ["紹介youtube_English(URL)", 14],
-image_url: ["画像URL", 15], category: [["スポーツイベントかどうか", "カテゴリ"], 16]
+image_url: ["画像URL", 15], category: [["スポーツイベントかどうか", "カテゴリ"], 16],
+lat: ["緯度", -1], lng: ["経度", -1]
 };
 function parseCSV(text) {
 const rows = splitCSV(text.trim());
@@ -203,6 +251,10 @@ for (const key of Object.keys(COLS)) if (key !== "status") ev[key] = get(key);
 ev.is_regular = ev.regular_note ? "YES" : "NO";
 // URL欄に「要確認」などの文字が入っていたら空扱い（リンク切れ・Not Found防止）
 for (const k of ["url", "map_url", "image_url", "youtube"]) if (!/^https?:\/\//i.test(ev[k])) ev[k] = "";
+// 位置：「緯度」「経度」列 → 無ければGoogleマップURLの「query=緯度,経度」から
+let la = parseFloat(ev.lat), ln = parseFloat(ev.lng);
+if (isNaN(la) || isNaN(ln)) { const m = (ev.map_url || "").match(/query=(-?\d+\.\d+),(-?\d+\.\d+)/); if (m) { la = +m[1]; ln = +m[2]; } }
+ev.pos = (!isNaN(la) && !isNaN(ln)) ? { lat: la, lng: ln } : null;
 events.push(ev);
 }
 return events;
@@ -229,7 +281,7 @@ app.innerHTML = '<div class="empty">スプレッドシートに「公開」の�
 return;
 }
 renderRegular();
-renderCards();
+render();
 } catch(e) {
 app.innerHTML = `<div class="error-box"><div class="error-msg">⚠️ データの読み込みに失敗しました。<br><small>エラー: ${e.message}</small></div></div>`;
 }
@@ -275,22 +327,137 @@ const dt = new Date(d);
 if (isNaN(dt)) return d;
 return dt.toLocaleDateString("ja-JP", {month:"short", day:"numeric"});
 }
-function renderCards() {
-const app = document.getElementById("app");
+// 絞り込み（カレンダー・地図で共通）。includeRegular=true で定期開催（黒門市場など）も含める
+function filterEvents(includeRegular) {
 const today = new Date(); today.setHours(0,0,0,0);
-const filtered = allEvents.filter(ev =>
-ev.is_regular !== "YES" &&
+return allEvents.filter(ev =>
+(includeRegular || ev.is_regular !== "YES") &&
 areaMatch(ev) &&
 catMatch(ev) &&
 inRange(ev) &&
 isUpcoming(ev, today)
-).sort((a, b) => {
+).sort(byDate);
+}
+function byDate(a, b) {
 const da = new Date(a.date_start), db = new Date(b.date_start);
 if (isNaN(da) && isNaN(db)) return 0;
 if (isNaN(da)) return 1;
 if (isNaN(db)) return -1;
 return da - db;
+}
+function render() {
+const isMap = view === "map";
+document.getElementById("map-view").hidden = !isMap;
+document.getElementById("app").hidden = isMap;
+document.getElementById("regular-section").style.display = isMap ? "none" : (allEvents.some(ev => ev.is_regular === "YES") ? "block" : "none");
+if (isMap) renderMap(); else renderCards();
+}
+// 2点間の距離（km）
+function distKm(a, b) {
+const R = 6371, toR = d => d * Math.PI / 180;
+const dLat = toR(b.lat - a.lat), dLng = toR(b.lng - a.lng);
+const h = Math.sin(dLat / 2) ** 2 + Math.cos(toR(a.lat)) * Math.cos(toR(b.lat)) * Math.sin(dLng / 2) ** 2;
+return 2 * R * Math.asin(Math.sqrt(h));
+}
+function fmtKm(km) { return km < 1 ? `約${Math.round(km * 1000 / 50) * 50}m` : `約${km.toFixed(km < 10 ? 1 : 0)}km`; }
+function dateLabel(ev) {
+if (ev.is_regular === "YES") return ev.regular_note || "定期開催";
+return fmtDate(ev.date_start) + (ev.date_end && ev.date_start !== ev.date_end ? " – " + fmtDate(ev.date_end) : "") +
+(ev.date_confirmed && ev.date_confirmed !== "確定" ? "（日程未確定）" : "");
+}
+function ensureMap() {
+if (map || typeof L === "undefined") return;
+map = L.map("map", { scrollWheelZoom: false }).setView([34.6937, 135.5023], 11);
+// 背景地図：国土地理院「淡色地図」（無料・APIキー不要。出典表記が必要）
+L.tileLayer("https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png", {
+minZoom: 5, maxZoom: 18,
+attribution: '<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">地理院タイル</a>'
+}).addTo(map);
+markerLayer = L.layerGroup().addTo(map);
+}
+function renderMap() {
+const msg = document.getElementById("map-msg");
+ensureMap();
+if (!map) { msg.hidden = false; msg.textContent = "地図を読み込めませんでした。通信状況を確認して、ページを再読み込みしてください。"; return; }
+setTimeout(() => map.invalidateSize(), 0);
+const list = filterEvents(true);
+const onMap = list.filter(ev => ev.pos);
+// 同じ会場（同じ座標）のイベントは1本のピンにまとめる
+const groups = {};
+onMap.forEach(ev => { const k = ev.pos.lat.toFixed(5) + "," + ev.pos.lng.toFixed(5); (groups[k] = groups[k] || []).push(ev); });
+markerLayer.clearLayers();
+for (const k in markerByKey) delete markerByKey[k];
+const bounds = [];
+Object.entries(groups).forEach(([k, evs]) => {
+const sports = evs.every(isSports);
+const icon = L.divIcon({ className: "", iconSize: [34, 34], iconAnchor: [17, 17], popupAnchor: [0, -16],
+html: `<div class="pin${sports ? " sports" : ""}">${iconFor(evs[0])}${evs.length > 1 ? `<span class="cnt">${evs.length}</span>` : ""}</div>` });
+const mk = L.marker([evs[0].pos.lat, evs[0].pos.lng], { icon, title: evs[0].place || evs[0].title });
+const html = `<div class="pop-venue">📍 ${esc(evs[0].place)}</div>` +
+evs.map(ev => `<button class="pop-item" data-key="${k}" data-i="${list.indexOf(ev)}">${esc(ev.title)}<small>${esc(dateLabel(ev))}</small></button>`).join("");
+mk.bindPopup(html, { maxWidth: 280, maxHeight: 260 });
+mk.on("popupopen", e => e.popup.getElement().querySelectorAll(".pop-item").forEach(b =>
+b.addEventListener("click", () => showDetail(list[+b.dataset.i]))));
+mk.addTo(markerLayer);
+markerByKey[k] = mk;
+bounds.push([evs[0].pos.lat, evs[0].pos.lng]);
 });
+if (userPos) bounds.push([userPos.lat, userPos.lng]);
+if (bounds.length) map.fitBounds(bounds, { padding: [30, 30], maxZoom: 14 });
+const noPos = list.length - onMap.length;
+document.getElementById("map-note").textContent = `${onMap.length}件を地図に表示` + (noPos ? `（場所未登録 ${noPos}件は一覧のみ）` : "");
+renderMapList(list);
+}
+function renderMapList(list) {
+const box = document.getElementById("map-list");
+let items = list.slice();
+if (sortMode === "near" && userPos) {
+items.forEach(ev => ev._d = ev.pos ? distKm(userPos, ev.pos) : Infinity);
+items.sort((a, b) => a._d - b._d || byDate(a, b));
+}
+if (!items.length) { box.innerHTML = '<div class="empty">該当するイベントがありません</div>'; return; }
+box.innerHTML = items.map(ev => `
+<button class="ml-item" data-i="${list.indexOf(ev)}">
+<span class="ml-icon">${iconFor(ev)}</span>
+<span class="ml-main"><span class="ml-title">${esc(ev.title)}</span><span class="ml-sub">${esc(dateLabel(ev))}・${esc(ev.area)}</span></span>
+${userPos && ev.pos ? `<span class="ml-dist">${fmtKm(distKm(userPos, ev.pos))}</span>` : ""}
+</button>`).join("");
+box.querySelectorAll(".ml-item").forEach(b => b.addEventListener("click", () => {
+const ev = list[+b.dataset.i];
+if (!ev.pos) { showDetail(ev); return; }
+const k = ev.pos.lat.toFixed(5) + "," + ev.pos.lng.toFixed(5);
+document.getElementById("map").scrollIntoView({ behavior: "smooth", block: "center" });
+map.setView([ev.pos.lat, ev.pos.lng], Math.max(map.getZoom(), 14));
+if (markerByKey[k]) markerByKey[k].openPopup();
+}));
+}
+function setSort(mode) {
+sortMode = mode;
+document.querySelectorAll(".btn[data-sort]").forEach(b => b.classList.toggle("active", b.dataset.sort === mode));
+renderMap();
+}
+// 現在地を取得して「近い順」に並べる
+function locate(btn) {
+const msg = document.getElementById("map-msg");
+if (!navigator.geolocation) { msg.hidden = false; msg.textContent = "この端末では現在地を取得できません。"; return; }
+btn.textContent = "📍 現在地を確認中…";
+navigator.geolocation.getCurrentPosition(p => {
+userPos = { lat: p.coords.latitude, lng: p.coords.longitude };
+btn.textContent = "📍 今いる場所から近い順";
+msg.hidden = true;
+if (meMarker) meMarker.remove();
+meMarker = L.marker([userPos.lat, userPos.lng], { icon: L.divIcon({ className: "", html: '<div class="pin-me"></div>', iconSize: [16, 16], iconAnchor: [8, 8] }), zIndexOffset: 1000 })
+.bindTooltip("現在地").addTo(map);
+setSort("near");
+}, () => {
+btn.textContent = "📍 今いる場所から近い順";
+msg.hidden = false;
+msg.textContent = "現在地を取得できませんでした。ブラウザの位置情報の利用を「許可」にしてから、もう一度押してください。";
+}, { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 });
+}
+function renderCards() {
+const app = document.getElementById("app");
+const filtered = filterEvents(false);
 if (!filtered.length) {
 app.innerHTML = '<div class="empty">該当するイベントがありません</div>';
 return;
@@ -314,6 +481,9 @@ card.addEventListener("click", () => showDetail(filtered[parseInt(card.dataset.i
 });
 }
 function showDetail(ev) {
+document.getElementById("map-view").hidden = true;
+document.getElementById("app").hidden = false;
+window.scrollTo(0, 0);
 const ytId = getYouTubeId(ev.youtube);
 document.getElementById("app").innerHTML = `
 <div class="detail-wrap">
@@ -354,7 +524,7 @@ ${ev.manner ? `
 <div class="detail-label">知っておくべきマナー・注意事項</div>
 <div class="manner-box">${ev.manner}</div>
 </div>` : ""}
-<button class="back-btn" onclick="renderCards()">← 一覧に戻る</button>
+<button class="back-btn" onclick="render()">← ${view === "map" ? "地図に戻る" : "一覧に戻る"}</button>
 </div>
 </div>`;
 }
@@ -363,7 +533,7 @@ btn.addEventListener("click", () => {
 document.querySelectorAll(".btn[data-area]").forEach(b => b.classList.remove("active"));
 btn.classList.add("active");
 area = btn.dataset.area;
-renderCards();
+render();
 });
 });
 document.querySelectorAll(".btn[data-cat]").forEach(btn => {
@@ -371,11 +541,24 @@ btn.addEventListener("click", () => {
 document.querySelectorAll(".btn[data-cat]").forEach(b => b.classList.remove("active"));
 btn.classList.add("active");
 cat = btn.dataset.cat;
-renderCards();
+render();
 });
 });
-document.getElementById("date-from").addEventListener("change", e => { dateFrom = e.target.value; renderCards(); });
-document.getElementById("date-to").addEventListener("change", e => { dateTo = e.target.value; renderCards(); });
+document.getElementById("date-from").addEventListener("change", e => { dateFrom = e.target.value; render(); });
+document.getElementById("date-to").addEventListener("change", e => { dateTo = e.target.value; render(); });
+document.querySelectorAll(".view-tab").forEach(btn => {
+btn.addEventListener("click", () => {
+document.querySelectorAll(".view-tab").forEach(b => b.classList.toggle("active", b === btn));
+view = btn.dataset.view;
+render();
+});
+});
+document.querySelectorAll(".btn[data-sort]").forEach(btn => {
+btn.addEventListener("click", () => {
+if (btn.dataset.sort === "near" && !userPos) { locate(btn); return; }
+setSort(btn.dataset.sort);
+});
+});
 loadEvents();
 </script>
 </body>
